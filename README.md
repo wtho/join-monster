@@ -1,3 +1,69 @@
+### Updates by wtho
+Resolve-dependencies between fields are not in the
+graphql-specification, still several libraries as graphql-resolvers or
+apollographql/graphql-tools solve this by introducing new methods. The
+SQL-approach join-monster does not offer this functionality, although it
+would be easy to offer access to siblings, after these were resolved by
+join-monster.
+
+One can request to load other table columns using the 'sqlDeps'-field
+and to process the fetched data in a sibling field. The limitations for
+this are, that the sibling field is in the same table. More
+sophisticated post-processing would have to take place in the query's
+resolve method, traversing the resolved object and manipulate it, which
+is highly discouraged, as it undermines graphql's type system.
+
+This commit adds a new possibility to list a sibling field, that is a
+GraphQLObjectType, or a list of those. When building the sqlAST, the
+object in the 'directDependency'-attribute will be added to the SQL tree
+and resolve as if it was in the query. Later, the depending field can
+access it implementing a resolve method.
+
+```javascriptexport
+const ParentObject = new GraphQLObjectType({
+  name: 'Parent',
+  sqlTable: 'parentTable',
+  uniqueKey: 'id',
+  fields: () => ({
+    id: {
+      type: GraphQLInt
+    },
+    postprocessedField: {
+      type: new GraphQLList(GraphQLString),
+      args: {
+        forSibilingImportantArg: { type: GraphQLString }
+      },
+      directDependency: {
+        name: 'rawRecords',
+        fields: ['data']
+      },
+      resolve(fields) {
+        return fields.rawSiblingField.map(sibling => {
+		  // fancy postprocessing
+		})
+      }
+    },
+    rawSiblingField: {
+      type: new GraphQLList(OtherObjectTypeWithOtherTable),
+      args: {
+        forSibilingImportantArg: { type: GraphQLString }
+      },
+      where: (table, args, ctx) => {
+        if (!args.forSibilingImportantArg) {
+          throw new Error(`Oh no! The argument is crucial!`)
+        }
+        return wheres.join(`some sql condition`)
+      },
+      sqlJoin: (parentTable, siblingTable) => `${parentTable}.id = ${siblingTable}.parent_id`
+    }
+  })
+})
+```
+In this setup, queries like ` { parent { postprocessedField(forSibilingImportantArg: "abc") } } ` will work, and still only one SQL request will be required.
+
+NOTE: An example declaration of `OtherObjectTypeWithOtherTable` is missing here, to make the example a bit shorter.
+
+
 <!-- Use fully qualified URL for the images so they'll also be visible from the NPM page too -->
 ![join-monster](https://raw.githubusercontent.com/stems/join-monster/master/docs/img/join_monster.png)
 [![npm version](https://badge.fury.io/js/join-monster.svg)](https://badge.fury.io/js/join-monster) [![Build Status](https://travis-ci.org/stems/join-monster.svg?branch=master)](https://travis-ci.org/stems/join-monster) [![Documentation Status](https://readthedocs.org/projects/join-monster/badge/?version=latest)](http://join-monster.readthedocs.io/en/latest/?badge=latest)
