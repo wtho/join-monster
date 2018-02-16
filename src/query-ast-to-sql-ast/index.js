@@ -193,21 +193,21 @@ export function populateASTNode(queryASTNode, parentTypeNode, sqlASTNode, namesp
       selectionSet: field.directDependency.fields ? {
         kind: 'SelectionSet',
         loc: queryASTNode.loc,
-        selections: field.directDependency.fields.map(field => ({
+        selections: field.directDependency.fields.map(siblingName => ({
           alias: undefined,
           args: [],
           directives: [],
           kind: 'Field',
           loc: queryASTNode.loc,
-          name: { kind: 'name', loc: queryASTNode.loc, value: field, selectionSet: undefined }
+          name: { kind: 'name', loc: queryASTNode.loc, value: siblingName, selectionSet: undefined }
         }))
       } : undefined
     }
-    let newNode = new SQLASTNode(sqlASTNode.parent);
+    let newNode = new SQLASTNode(sqlASTNode.parent)
     sqlASTNode.parent.children.push(newNode)
     populateASTNode.call(this, dependencyASTNode, parentTypeNode, newNode, namespace, depth, options, context)
-    sqlASTNode.type = 'noop';
-    sqlASTNode.names = field.directDeps;
+    sqlASTNode.type = 'noop'
+    sqlASTNode.names = field.directDeps
   // maybe this node wants no business with your SQL, because it has its own resolver
   } else {
     sqlASTNode.type = 'noop'
